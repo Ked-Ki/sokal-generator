@@ -33,6 +33,8 @@ executable spew
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.8 && <5,
-                       array
+                       array,
+                       random,
+                       mtl
   hs-source-dirs:      src
   default-language:    Haskell2010
