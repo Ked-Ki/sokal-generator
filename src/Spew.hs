@@ -5,17 +5,28 @@ import System.Environment (getArgs)
 
 type FastModel = Array Int (String,[(Int,Int)])
 
-runModel :: Int -> FastModel -> State StdGen String
+runModel :: Int -> FastModel -> State StdGen [String]
 runModel len model = do
   startIx <- state $ randomR (1,snd $ bounds model)   
-  let startSt = model ! startIx
-  fst <$> foldM genOneWord startSt [2..len] 
+  let (str,next) = model ! startIx
+  reverse . fst <$> foldM genOneWord ([str],next) [1..len] 
   where
-    genOneWord (str,next) _ = do
-      succIx <- state $ randomR (0,length next - 1)
-      let newIx = snd $ next !! succIx
+    genOneWord (strs,next) _ = do
+      succIx <- state $ randomR (0, sum (map fst next) - 1)
+      let newIx = indexFreqs succIx next
       let (newStr, newNext) = model ! newIx
-      return (str ++ " " ++ newStr, newNext)
+      return (newStr : strs, newNext)
+    indexFreqs i ((f,s):xs) 
+      | i < f = s
+      | otherwise = indexFreqs (i-f) xs
+
+linefill :: Int -> [String] -> String
+linefill _ [] = "\n"
+linefill n (x:xs) = iter x xs where
+  iter x (y:ys) 
+    | length x + length y + 1 > n = x ++ "\n" ++ linefill n (y:ys)
+    | otherwise                   = iter (x ++ " " ++ y) ys
+  iter x [] = x ++ "\n"
 
 main :: IO ()
 main = do
@@ -28,4 +39,5 @@ main = do
   let fastModel = array (1,upBound) (zip [1..] modelTpls)
   gen <- getStdGen
   let output = evalState (runModel len fastModel) gen
-  putStrLn output
+  let cleaned = tail $ dropWhile ((/= '.') . last) output
+  putStr $ linefill 72 cleaned

@@ -8,6 +8,7 @@ import qualified Text.HTML.TagSoup as TS
 import qualified Data.Map as Map
 
 import Control.Monad (liftM)
+import Data.Char (isAscii)
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Maybe
@@ -34,12 +35,14 @@ type ProcessedModel = [(String,[(Int,Int)])]
 mkPrcModel :: PrimitiveModel -> ProcessedModel
 mkPrcModel m = map processState $ Map.toList $ Map.map toFreq m
   where 
-    toFreq l = sortBy (compare `on` (Down . fst)) $ map (\(a,b) -> (b,a)) $ 
-               Map.toList $ toFreq' Map.empty l
+    toFreq l = sortBy (compare `on` (Down . fst)) $ toFreq' [] l
 
-    toFreq' :: Map.Map String Int -> [String] -> Map.Map String Int
+    toFreq' :: [(Int,String)] -> [String] -> [(Int,String)]
     toFreq' accum [] = accum
-    toFreq' accum (w:ws) = toFreq' (Map.insertWith (+) w 1 accum) ws
+    toFreq' accum (w:ws) = toFreq' ((cnt,w):accum) ws'
+      where
+        ws' = filter (/= w) ws
+        cnt = (length ws) - (length ws') + 1
 
     processState ((x,y),freqs) = (y, mapMaybe (mkIdx y) freqs)
     mkIdx y (i,str) = do
@@ -66,9 +69,10 @@ harvestText tags = concatMap words $ harvest' False tags
     -- state is True inside <p> tags and False outside them
       (False, (TS.TagOpen "p" _): ts) -> harvest' True ts 
       (True,  (TS.TagClose "p") : ts) -> harvest' False ts
-      (True,  (TS.TagText str)  : ts) -> str : harvest' True ts
+      (True,  (TS.TagText str)  : ts) -> clean str : harvest' True ts
       (_, _:ts) -> harvest' state ts
       (_, []) -> []
+    clean = filter isAscii
 
 outputFilename :: FilePath
 outputFilename = "sokal.model"
@@ -80,6 +84,8 @@ main = do
   let urlFile = head args
   contents <- readFile urlFile
   primModels <- mapM (mkModelFromUrl) $ words contents
+  putStrLn "combining models..."
+  let combModel = Map.unionsWith (++) primModels
   putStrLn "processing model..."
-  let prcModel = mkPrcModel $ Map.unions primModels
+  let prcModel = mkPrcModel combModel
   mapM_ (appendFile outputFilename . (++ "\n") . show) prcModel 
