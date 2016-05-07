@@ -49,6 +49,7 @@ mkPrcModel m = map processState $ Map.toList $ Map.map toFreq m
 
 fetchWords :: String -> IO [String]
 fetchWords url = do
+  putStrLn $ "fetching " ++ url
   (_,resp) <- browse $ do
      setOutHandler $ const (return ()) -- silence logging of HTTP headers
      request $ getRequest url
@@ -75,6 +76,7 @@ main = do
   let urlFile = head args
   contents <- readFile urlFile
   rawWords <- mapM fetchWords $ words contents
+  putStrLn "building model..."
   let allWords = concat rawWords
   let prcModel = (mkPrcModel . mkPrimModel) allWords
   mapM_ (appendFile outputFilename . (++ "\n") . show) prcModel 
