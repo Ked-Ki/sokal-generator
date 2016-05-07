@@ -4,5 +4,8 @@ type FastModel = Array Int (String,[(Int,Int)])
 
 main :: IO ()
 main = do
-  putStrLn "stub"
-
+  let inFile = "sokal.model"
+  modelStrs <- lines <$> readFile inFile 
+  let upBound = length modelStrs
+  let fastModel = array (1,upBound) (zip [1..] modelStrs)
+  putStrLn "still stub"
