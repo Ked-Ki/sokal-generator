@@ -7,6 +7,7 @@ import System.Environment (getArgs)
 import qualified Text.HTML.TagSoup as TS
 import qualified Data.Map as Map
 
+import Control.Monad (liftM)
 import Data.Function (on)
 import Data.List (sortBy)
 import Data.Maybe
@@ -46,6 +47,9 @@ mkPrcModel m = map processState $ Map.toList $ Map.map toFreq m
       return (i,idx)
 
 -- Fetching and cleaning the text from URLs
+--
+mkModelFromUrl :: String -> IO PrimitiveModel
+mkModelFromUrl url = mkPrimModel <$> fetchWords url
 
 fetchWords :: String -> IO [String]
 fetchWords url = do
@@ -75,8 +79,7 @@ main = do
   args <- getArgs
   let urlFile = head args
   contents <- readFile urlFile
-  rawWords <- mapM fetchWords $ words contents
-  putStrLn "building model..."
-  let allWords = concat rawWords
-  let prcModel = (mkPrcModel . mkPrimModel) allWords
+  primModels <- mapM (mkModelFromUrl) $ words contents
+  putStrLn "processing model..."
+  let prcModel = mkPrcModel $ Map.unions primModels
   mapM_ (appendFile outputFilename . (++ "\n") . show) prcModel 
