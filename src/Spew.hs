@@ -53,6 +53,7 @@ main :: IO ()
 main = do
   args <- getArgs
   let len = read $ head args
+  when (len <= 0) $ fail "can't produce empty text"
   let inFile = "sokal.model"
   modelStrs <- lines <$> readFile inFile 
   let modelTpls = read <$> modelStrs

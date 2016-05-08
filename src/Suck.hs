@@ -6,7 +6,7 @@ import System.Environment (getArgs)
 import qualified Text.HTML.TagSoup as TS
 import qualified Data.Map as Map
 
-import Control.Monad (liftM)
+import Control.Monad 
 import Data.Char (isAscii)
 import Data.Function (on)
 import Data.List (sortBy)
@@ -71,8 +71,9 @@ outputFilename = "sokal.model"
 
 main :: IO ()
 main = do
-  writeFile outputFilename ""
   args <- getArgs
+  when (null args) $ fail "need to provide input filename"
+  writeFile outputFilename ""
   let urlFile = head args
   contents <- readFile urlFile
   primModels <- mapM (liftM mkPrimModel . fetchWords) $ words contents
