@@ -1,24 +1,45 @@
 import Data.Array
 import Control.Monad.State
+import Control.Monad.Writer
 import System.Random
 import System.Environment (getArgs)
 
 type FastModel = Array Int (String,[(Int,Int)])
 
-runModel :: Int -> FastModel -> State StdGen [String]
+data InnerState = InnerState { stdGen :: StdGen, curSuccs :: [(Int,Int)] }
+type ModelState = WriterT [String] (State InnerState) ()
+
+runModel :: Int -> FastModel -> ModelState
 runModel len model = do
-  startIx <- state $ randomR (1,snd $ bounds model)   
+  startIx <- state $ randomR' (1,snd $ bounds model)
   let (str,next) = model ! startIx
-  reverse . fst <$> foldM genOneWord ([str],next) [1..len] 
+  tell [str]
+  putSuccs next
+  replicateM_ len genWord
   where
-    genOneWord (strs,next) _ = do
-      succIx <- state $ randomR (0, sum (map fst next) - 1)
+    genWord = do
+      next <- getSuccs
+      succIx <- state $ randomR' (0, sum (map fst next) - 1)
       let newIx = indexFreqs succIx next
       let (newStr, newNext) = model ! newIx
-      return (newStr : strs, newNext)
+      tell [newStr]
+      putSuccs newNext
+
     indexFreqs i ((f,s):xs) 
       | i < f = s
       | otherwise = indexFreqs (i-f) xs
+
+    -- State helpers
+    randomR' :: Random a => (a,a) -> InnerState -> (a, InnerState)
+    randomR' bs st = (val, st { stdGen = gen' })
+      where
+        (val, gen') = randomR bs (stdGen st)
+    getSuccs = curSuccs `liftM` get
+    putSuccs :: [(Int,Int)] -> ModelState
+    putSuccs a = do
+      st <- get
+      put st { curSuccs = a }
+
 
 linefill :: Int -> [String] -> String
 linefill _ [] = "\n"
@@ -38,6 +59,6 @@ main = do
   let upBound = length modelTpls
   let fastModel = array (1,upBound) (zip [1..] modelTpls)
   gen <- getStdGen
-  let output = evalState (runModel len fastModel) gen
+  let output = evalState (execWriterT (runModel len fastModel)) $ InnerState gen []
   let cleaned = tail $ dropWhile ((/= '.') . last) output
   putStr $ linefill 72 cleaned

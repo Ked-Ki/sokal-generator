@@ -1,4 +1,3 @@
---IO Libraries
 import Network.Browser (browse, request, setOutHandler)
 import Network.HTTP (getRequest)
 import Network.HTTP.Base (rspBody)
@@ -19,15 +18,11 @@ import Data.Ord
 type PrimitiveModel = Map.Map (String,String) [String]
 
 mkPrimModel :: [String] -> PrimitiveModel
-mkPrimModel words = mkPrimModel' ("","") words Map.empty
+mkPrimModel = mkPrimModel' ("","") Map.empty
   where
-    mkPrimModel' :: (String,String) -> 
-                    [String] -> 
-                    Map.Map (String,String) [String] -> 
-                    Map.Map (String,String) [String]
-    mkPrimModel' state (w:ws) map = mkPrimModel' (snd state, w) ws $ 
-                                      Map.insertWith (++) state [w] map
-    mkPrimModel' state [] map = map
+    mkPrimModel' state map (w:ws) 
+      = mkPrimModel' (snd state, w) (Map.insertWith (++) state [w] map) ws
+    mkPrimModel' state map [] = map
 
 
 type ProcessedModel = [(String,[(Int,Int)])]
@@ -50,9 +45,6 @@ mkPrcModel m = map processState $ Map.toList $ Map.map toFreq m
       return (i,idx)
 
 -- Fetching and cleaning the text from URLs
---
-mkModelFromUrl :: String -> IO PrimitiveModel
-mkModelFromUrl url = mkPrimModel <$> fetchWords url
 
 fetchWords :: String -> IO [String]
 fetchWords url = do
@@ -83,9 +75,8 @@ main = do
   args <- getArgs
   let urlFile = head args
   contents <- readFile urlFile
-  primModels <- mapM (mkModelFromUrl) $ words contents
-  putStrLn "combining models..."
-  let combModel = Map.unionsWith (++) primModels
+  primModels <- mapM (liftM mkPrimModel . fetchWords) $ words contents
+  let combinedModel = Map.unionsWith (++) primModels
   putStrLn "processing model..."
-  let prcModel = mkPrcModel combModel
+  let prcModel = mkPrcModel combinedModel
   mapM_ (appendFile outputFilename . (++ "\n") . show) prcModel 
